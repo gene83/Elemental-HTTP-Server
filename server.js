@@ -103,7 +103,7 @@ const server = http.createServer((req, res) => {
           const indexHTMLBottom = indexHTMLText.slice(indexOfListEnd);
           const newListElement = `<li><a href="/${
             parsedRequestBody.elementName
-          }">${parsedRequestBody.elementName}</a><li>`;
+          }.html">${parsedRequestBody.elementName}</a></li>`;
           const newIndexHTML = indexHTMLTop.concat(
             newListElement,
             indexHTMLBottom
@@ -121,6 +121,113 @@ const server = http.createServer((req, res) => {
         }
       });
     }
+  }
+
+  if (req.method === 'PUT') {
+    fs.access('./public' + req.url, err => {
+      if (err) {
+        res.writeHead(500, { 'Content-Type': 'application/JSON' });
+        res.end(`{ "error": 'resource ${req.url} does not exist' }`);
+      } else {
+        let requestBody = '';
+        let parsedRequestBody = '';
+        let htmlFileText = '';
+
+        req.on('data', chunk => {
+          requestBody += chunk;
+        });
+
+        req.on('end', chunk => {
+          if (chunk) {
+            requestBody += chunk;
+          }
+
+          parsedRequestBody = querystring.parse(requestBody);
+
+          htmlFileText = `<!DOCTYPE html>
+        <html lang="en">
+          <head>
+            <meta charset="UTF-8" />
+            <title>The Elements - Helium</title>
+            <link rel="stylesheet" href="/css/styles.css" />
+          </head>
+          <body>
+            <h1>${parsedRequestBody.elementName}</h1>
+            <h2>${parsedRequestBody.elementSymbol}</h2>
+            <h3>Atomic number ${parsedRequestBody.elementAtomicNumber}</h3>
+            <p>
+              ${parsedRequestBody.elementDescription}
+            </p>
+            <p><a href="/">back</a></p>
+          </body>
+        </html>
+        `;
+
+          fs.writeFile(`./public${req.url}`, htmlFileText, (err, data) => {
+            if (err) {
+              res.writeHead(500, { 'Content-Type': 'application/JSON' });
+              res.end('{ "success": false, could not write data }');
+            } else {
+              res.writeHead(200, { 'Content-Type': 'application/JSON' });
+              res.end('{ "success": true }');
+            }
+          });
+        });
+      }
+    });
+  }
+
+  if (req.method === 'DELETE') {
+    fs.access('./public' + req.url, err => {
+      if (err) {
+        res.writeHead(500, { 'Content-Type': 'application/JSON' });
+        res.end(`{ "error": resource ${req.url} does not exist }`);
+      } else {
+        let indexHTMLText = '';
+
+        fs.unlink('./public' + req.url, err => {
+          if (err) {
+            res.writeHead(500, { 'Content-Type': 'application/JSON' });
+            res.end('{ "success": false, could not delete file }');
+          }
+        });
+
+        fs.readFile('./public/index.html', 'utf8', (err, data) => {
+          if (err) {
+            throw err;
+          } else {
+            indexHTMLText = data;
+            processData();
+          }
+        });
+
+        function processData() {
+          const indexOfListElement = indexHTMLText.indexOf(
+            `<li><a href="${req.url}`
+          );
+
+          const indexHTMLTop = indexHTMLText.slice(0, indexOfListElement);
+          const indexHTMLBottom = indexHTMLText.slice(indexOfListElement);
+
+          const indexOfListElementEnd = indexHTMLBottom.indexOf('</li>');
+          const newIndexHTMLBottom = indexHTMLBottom.slice(
+            indexOfListElementEnd + 5
+          );
+
+          const newIndexHTML = indexHTMLTop.concat(newIndexHTMLBottom);
+
+          fs.writeFile('./public/index.html', newIndexHTML, (err, data) => {
+            if (err) {
+              res.writeHead(500, { 'Content-Type': 'application/JSON' });
+              res.end('{ "success": false }');
+            } else {
+              res.writeHead(200, { 'Content-Type': 'application/JSON' });
+              res.end('{ "success": true }');
+            }
+          });
+        }
+      }
+    });
   }
 });
 
