@@ -112,7 +112,7 @@ const server = http.createServer((req, res) => {
           fs.writeFile('./public/index.html', newIndexHTML, (err, data) => {
             if (err) {
               res.writeHead(500, { 'Content-Type': 'application/JSON' });
-              res.end('{ "success": false }');
+              res.end('{ "error": "could not write file" }');
             } else {
               res.writeHead(200, { 'Content-Type': 'application/JSON' });
               res.end('{ "success": true }');
@@ -127,8 +127,15 @@ const server = http.createServer((req, res) => {
     fs.access('./public' + req.url, err => {
       if (err) {
         res.writeHead(500, { 'Content-Type': 'application/JSON' });
-        res.end(`{ "error": 'resource ${req.url} does not exist' }`);
+        res.end(`{ "error": "resource ${req.url} does not exist" }`);
       } else {
+        const requiredFields = [
+          'elementName',
+          'elementSymbol',
+          'elementAtomicNumber',
+          'elementDescription'
+        ];
+        let hasRequiredFields = true;
         let requestBody = '';
         let parsedRequestBody = '';
         let htmlFileText = '';
@@ -144,7 +151,14 @@ const server = http.createServer((req, res) => {
 
           parsedRequestBody = querystring.parse(requestBody);
 
-          htmlFileText = `<!DOCTYPE html>
+          requiredFields.forEach(field => {
+            if (!Object.keys(parsedRequestBody).includes(field)) {
+              hasRequiredFields = false;
+            }
+          });
+
+          if (hasRequiredFields) {
+            htmlFileText = `<!DOCTYPE html>
         <html lang="en">
           <head>
             <meta charset="UTF-8" />
@@ -163,15 +177,16 @@ const server = http.createServer((req, res) => {
         </html>
         `;
 
-          fs.writeFile(`./public${req.url}`, htmlFileText, (err, data) => {
-            if (err) {
-              res.writeHead(500, { 'Content-Type': 'application/JSON' });
-              res.end('{ "success": false, could not write data }');
-            } else {
-              res.writeHead(200, { 'Content-Type': 'application/JSON' });
-              res.end('{ "success": true }');
-            }
-          });
+            fs.writeFile(`./public${req.url}`, htmlFileText, (err, data) => {
+              if (err) {
+                res.writeHead(500, { 'Content-Type': 'application/JSON' });
+                res.end('{ "error": "could not write file" }');
+              } else {
+                res.writeHead(200, { 'Content-Type': 'application/JSON' });
+                res.end('{ "success": true }');
+              }
+            });
+          }
         });
       }
     });
@@ -181,7 +196,7 @@ const server = http.createServer((req, res) => {
     fs.access('./public' + req.url, err => {
       if (err) {
         res.writeHead(500, { 'Content-Type': 'application/JSON' });
-        res.end(`{ "error": resource ${req.url} does not exist }`);
+        res.end(`{ "error": "resource ${req.url} does not exist" }`);
       } else {
         let indexHTMLText = '';
 
