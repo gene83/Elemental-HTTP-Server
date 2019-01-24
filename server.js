@@ -41,6 +41,13 @@ const server = http.createServer((req, res) => {
       res.writeHead(404);
       return res.end('Could not post to file path: ' + req.url);
     } else {
+      const requiredFields = [
+        'elementName',
+        'elementSymbol',
+        'elementAtomicNumber',
+        'elementDescription'
+      ];
+      let hasRequiredFields = true;
       let requestBody = '';
       let parsedRequestBody = '';
       let htmlFileText = '';
@@ -57,7 +64,17 @@ const server = http.createServer((req, res) => {
 
         parsedRequestBody = querystring.parse(requestBody);
 
-        htmlFileText = `<!DOCTYPE html>
+        requiredFields.forEach(field => {
+          if (!Object.keys(parsedRequestBody).includes(field)) {
+            hasRequiredFields = false;
+          }
+        });
+
+        if (!hasRequiredFields) {
+          res.writeHead(406);
+          res.end('request does not provide required fields');
+        } else {
+          htmlFileText = `<!DOCTYPE html>
         <html lang="en">
           <head>
             <meta charset="UTF-8" />
@@ -76,48 +93,49 @@ const server = http.createServer((req, res) => {
         </html>
         `;
 
-        fs.writeFile(
-          `./public/${parsedRequestBody.elementName}.html`,
-          htmlFileText,
-          (err, data) => {
-            if (err) {
-              res.writeHead(500, { 'Content-Type': 'application/JSON' });
-              res.end('{ "success": false }');
+          fs.writeFile(
+            `./public/${parsedRequestBody.elementName}.html`,
+            htmlFileText,
+            (err, data) => {
+              if (err) {
+                res.writeHead(500, { 'Content-Type': 'application/JSON' });
+                res.end('{ "success": false }');
+              }
             }
-          }
-        );
-
-        fs.readFile('./public/index.html', 'utf8', (err, data) => {
-          if (err) {
-            throw err;
-          } else {
-            indexHTMLText = data;
-
-            processData();
-          }
-        });
-
-        function processData() {
-          const indexOfListEnd = indexHTMLText.indexOf('</ol>');
-          const indexHTMLTop = indexHTMLText.slice(0, indexOfListEnd);
-          const indexHTMLBottom = indexHTMLText.slice(indexOfListEnd);
-          const newListElement = `<li><a href="/${
-            parsedRequestBody.elementName
-          }.html">${parsedRequestBody.elementName}</a></li>`;
-          const newIndexHTML = indexHTMLTop.concat(
-            newListElement,
-            indexHTMLBottom
           );
 
-          fs.writeFile('./public/index.html', newIndexHTML, (err, data) => {
+          fs.readFile('./public/index.html', 'utf8', (err, data) => {
             if (err) {
-              res.writeHead(500, { 'Content-Type': 'application/JSON' });
-              res.end('{ "error": "could not write file" }');
+              throw err;
             } else {
-              res.writeHead(200, { 'Content-Type': 'application/JSON' });
-              res.end('{ "success": true }');
+              indexHTMLText = data;
+
+              processData();
             }
           });
+
+          function processData() {
+            const indexOfListEnd = indexHTMLText.indexOf('</ol>');
+            const indexHTMLTop = indexHTMLText.slice(0, indexOfListEnd);
+            const indexHTMLBottom = indexHTMLText.slice(indexOfListEnd);
+            const newListElement = `<li><a href="/${
+              parsedRequestBody.elementName
+            }.html">${parsedRequestBody.elementName}</a></li>`;
+            const newIndexHTML = indexHTMLTop.concat(
+              newListElement,
+              indexHTMLBottom
+            );
+
+            fs.writeFile('./public/index.html', newIndexHTML, (err, data) => {
+              if (err) {
+                res.writeHead(500, { 'Content-Type': 'application/JSON' });
+                res.end('{ "error": "could not write file" }');
+              } else {
+                res.writeHead(200, { 'Content-Type': 'application/JSON' });
+                res.end('{ "success": true }');
+              }
+            });
+          }
         }
       });
     }
@@ -157,7 +175,10 @@ const server = http.createServer((req, res) => {
             }
           });
 
-          if (hasRequiredFields) {
+          if (!hasRequiredFields) {
+            res.writeHead(406);
+            res.end('request does not provide required fields');
+          } else {
             htmlFileText = `<!DOCTYPE html>
         <html lang="en">
           <head>
